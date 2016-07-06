@@ -16,8 +16,10 @@ from optparse import OptionParser
 import webbrowser
 import sys
 
+
 def config_client(config_name=None):
     return get_client(get_config(config_name)[1])
+
 
 def get_config(name=None):
     name = name or 'app.cfg'

@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 from __future__ import with_statement
 
-import datetime
-import time
 import cgi
-import types
 import logging
+import types
 from urllib import urlencode
 from urllib2 import HTTPError, HTTPErrorProcessor, urlopen, Request, build_opener
 
-import oauth
 import MultipartPostHandler as mph
+import oauth
 
 # This is an example of a client wrapper that you can use to
 # make calls to the Meetup.com API. It requires that you have 
@@ -44,12 +42,16 @@ COMMENTS_URI = 'comments'
 PHOTO_URI = 'photo'
 MEMBER_PHOTO_URI = '2/member_photo'
 
-API_BASE_URL = 'http://api.meetup.com/'
-OAUTH_BASE_URL = 'http://www.meetup.com/'
+API_BASE_URL = 'https://api.meetup.com/'
+OAUTH_BASE_URL = 'https://api.meetup.com/'
+OAUTH_SECURE_BASE_URL = 'https://secure.meetup.com/'
 
 
 signature_method_plaintext = oauth.OAuthSignatureMethod_PLAINTEXT()
 signature_method_hmac = oauth.OAuthSignatureMethod_HMAC_SHA1()
+
+# TODO [thq]: fetch album photos from API v3:
+# http://www.meetup.com/meetup_api/docs/:urlname/photo_albums/:album_id/photos/#list
 
 # TODO : restrict which URL parameters can be used in each of the API calls 
 # TODO : screen bad queries before they go to the server 
@@ -151,21 +153,21 @@ class MeetupOAuthSession:
             callbackUrl = "&" + urlencode({"oauth_callback":oauth_callback})
         else:
             callbackUrl = ""
-        return OAUTH_BASE_URL + "authorize/?oauth_token=%s%s" % (self.request_token.key, callbackUrl)
+        return OAUTH_SECURE_BASE_URL + "authorize/?oauth_token=%s%s" % (self.request_token.key, callbackUrl)
 
     def get_authenticate_url(self, oauth_callback=None):
         if oauth_callback:
             callbackUrl = "&" + urlencode({"oauth_callback":oauth_callback})
         else:
             callbackUrl = ""
-        return OAUTH_BASE_URL + "authenticate/?oauth_token=%s%s" % (self.request_token.key, callbackUrl)
+        return OAUTH_SECURE_BASE_URL + "authenticate/?oauth_token=%s%s" % (self.request_token.key, callbackUrl)
 
     def fetch_access_token(self, oauth_verifier, signature_method=signature_method_hmac, request_token=None):
         temp_request_token = request_token or self.request_token
         if not temp_request_token:
             raise NoToken("You must provide a request token to exchange for an access token")
-        oauth_req = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=temp_request_token, 
-            http_url=OAUTH_BASE_URL + 'oauth/access/', verifier=oauth_verifier)
+        oauth_req = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=temp_request_token,
+                                                               http_url=OAUTH_BASE_URL + 'oauth/access/', verifier=oauth_verifier)
         oauth_req.sign_request(signature_method, self.consumer, temp_request_token)
         token_string = urlopen(Request(oauth_req.http_url, headers=oauth_req.to_header())).read()
         self.access_token = oauth.OAuthToken.from_string(token_string)
@@ -200,7 +202,7 @@ class MeetupOAuth(Meetup):
         if not session.access_token:
             raise BadRequestError("Current MeetupOAuthSession does not have an access_token.")
         
-        oauth_access = oauth.OAuthRequest.from_consumer_and_token(self.consumer, 
+        oauth_access = oauth.OAuthRequest.from_consumer_and_token(self.consumer,
                                                                   http_method=http_method,
                                                                   token = session.access_token,
                                                                   http_url=API_BASE_URL + uri + "/",
